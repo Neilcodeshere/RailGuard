@@ -1,0 +1,54 @@
+# ─── Dependencies ───────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ─── Environment Variables ───────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Build Outputs ───────────────────────────────────────────
+dist/
+build/
+client/dist/
+client/build/
+
+# ─── Uploads (user-generated content) ───────────────────────
+server/uploads/
+
+# ─── Logs ────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── OS Files ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── IDE / Editor ────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── Arduino / PlatformIO ────────────────────────────────────
+hardware/**/*.o
+hardware/**/*.d
+hardware/**/*.elf
+hardware/**/*.bin
+hardware/**/*.hex
+hardware/**/build/
+.pio/
+
+# ─── Misc ────────────────────────────────────────────────────
+*.tgz
+*.tar.gz
+query
