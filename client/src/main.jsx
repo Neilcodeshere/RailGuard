@@ -8,6 +8,7 @@ import { AnimatePresence } from "framer-motion";
 import { AuthProvider } from "./contexts/AuthContext";
 import Preloader from "./views/components/Preloader";
 import App from "./App";
+import { ToastProvider } from "./contexts/ToastContext";
 import "./index.css";
 
 class ErrorBoundary extends React.Component {
@@ -34,7 +35,9 @@ function Root() {
       {ready && (
         <ErrorBoundary>
           <AuthProvider>
-            <App />
+            <ToastProvider>
+              <App />
+            </ToastProvider>
           </AuthProvider>
         </ErrorBoundary>
       )}

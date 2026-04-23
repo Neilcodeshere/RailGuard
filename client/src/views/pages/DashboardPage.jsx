@@ -6,9 +6,10 @@ import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   Activity, AlertTriangle, CheckCircle, TrendingUp,
   Zap, Radio, Cpu, Play, Square, Wifi, WifiOff,
-  ChevronRight, Signal, Satellite,
+  ChevronRight, Signal, Satellite, MessageSquare, Send
 } from "lucide-react";
 import StatCard from "../components/StatCard";
+import { sendWhatsAppAlert } from "../../controllers/whatsappController";
 
 /* ── constants ─────────────────────────────────────────────────────────────── */
 const SEV = {
@@ -294,9 +295,34 @@ function ReportRow({ report, index, onClick, selected }) {
 }
 
 /* ── detail drawer (expanded report) ───────────────────────────────────────── */
-function DetailDrawer({ report, onClose }) {
+function DetailDrawer({ report, onClose, whatsappNumber, vehicle }) {
+  const [sending, setSending] = useState(false);
+  const [sent,    setSent]    = useState(false);
+
   if (!report) return null;
   const sev = SEV[report.severity] ?? SEV.LOW;
+
+  const handleManualWhatsApp = async () => {
+    if (!whatsappNumber) return alert("No WhatsApp number configured for alerts.");
+    setSending(true);
+    const res = await sendWhatsAppAlert(whatsappNumber, {
+      type: report.type,
+      vehicleName: vehicle?.name || "Vehicle",
+      vehicleId: vehicle?.id || "N/A",
+      corridor: report.corridor,
+      severity: report.severity,
+      location: report.latitude ? `${report.latitude}, ${report.longitude}` : "Unknown",
+      photoUrl: report.photoUrl || "http://localhost:5173/dashboard",
+    });
+    setSending(false);
+    if (res.success) {
+      setSent(true);
+      setTimeout(() => setSent(false), 3000);
+    } else {
+      alert("Failed to send WhatsApp: " + res.error);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, height: 0 }}
@@ -315,7 +341,8 @@ function DetailDrawer({ report, onClose }) {
           <p style={{ fontSize: 15, fontWeight: 800, color: sev.color }}>{report.type.replace(/_/g, " ")}</p>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3)", fontSize: 16 }}>✕</button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
           {[
             ["ID",          report.id],
             ["Severity",    report.severity],
@@ -334,6 +361,26 @@ function DetailDrawer({ report, onClose }) {
             </div>
           ))}
         </div>
+
+        {/* Action Button */}
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleManualWhatsApp}
+          disabled={sending || !whatsappNumber}
+          style={{
+            width: "100%", padding: "10px", borderRadius: "var(--r-md)",
+            border: "none", cursor: (sending || !whatsappNumber) ? "not-allowed" : "pointer",
+            background: sent ? "var(--green)" : "rgba(34,197,94,.15)",
+            color: sent ? "#fff" : "var(--green)",
+            fontSize: 12, fontWeight: 700,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            transition: "all .3s",
+          }}
+        >
+          {sending ? <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }}><RefreshCw size={14}/></motion.div> : <MessageSquare size={14} />}
+          {sent ? "WhatsApp Alert Sent!" : sending ? "Sending WhatsApp..." : "Send Manual WhatsApp Alert"}
+        </motion.button>
       </div>
     </motion.div>
   );
@@ -341,7 +388,7 @@ function DetailDrawer({ report, onClose }) {
 
 /* ── main page ──────────────────────────────────────────────────────────────── */
 export default function DashboardPage({
-  reports, stats, telemetry, deviceOnline, rtdbConnected, botRunning, startBot, stopBot,
+  reports, stats, telemetry, deviceOnline, rtdbConnected, botRunning, startBot, stopBot, vehicle, whatsappNumber
 }) {
   const [selected, setSelected] = useState(null);
   const latest = reports.slice(0, 10);
@@ -473,7 +520,15 @@ export default function DashboardPage({
               <div key={r.id}>
                 <ReportRow report={r} index={i} onClick={toggle} selected={selected?.id === r.id} />
                 <AnimatePresence>
-                  {selected?.id === r.id && <DetailDrawer key="drawer" report={selected} onClose={() => setSelected(null)} />}
+                  {selected?.id === r.id && (
+                    <DetailDrawer 
+                      key="drawer" 
+                      report={selected} 
+                      onClose={() => setSelected(null)} 
+                      whatsappNumber={whatsappNumber}
+                      vehicle={vehicle}
+                    />
+                  )}
                 </AnimatePresence>
               </div>
             ))}

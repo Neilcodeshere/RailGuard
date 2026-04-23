@@ -4,13 +4,18 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import VehicleSwitcher from "./VehicleSwitcher";
-import { LayoutDashboard, Map, ClipboardList, Radio, Train, LogOut, ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
+import { 
+  LayoutDashboard, Map, ClipboardList, Radio, Train, LogOut, 
+  ChevronLeft, ChevronRight, Menu, X, Camera, Phone, Settings, 
+  Edit2, ExternalLink, CheckCircle2 
+} from "lucide-react";
 
 const NAV = [
   { id: "dashboard", label: "Dashboard",     icon: LayoutDashboard },
   { id: "map",       label: "GPS & Map",      icon: Map },
   { id: "telemetry", label: "Live Telemetry", icon: Radio },
   { id: "history",   label: "History Log",    icon: ClipboardList },
+  { id: "camera",    label: "Camera & Feed",  icon: Camera },
 ];
 
 function NavItem({ id, label, icon: Icon, isActive, collapsed, onClick, badge }) {
@@ -64,10 +69,20 @@ function NavItem({ id, label, icon: Icon, isActive, collapsed, onClick, badge })
   );
 }
 
-export default function Sidebar({ activeTab, onTabChange, onLogout, criticalCount = 0, vehicles = [], vehiclesLoading = false, selectedVehicle, onSwitchVehicle }) {
-  const [collapsed, setCollapsed] = useState(false);
+export default function Sidebar({ 
+  activeTab, onTabChange, onLogout, 
+  criticalCount = 0, vehicles = [], 
+  vehiclesLoading = false, selectedVehicle, 
+  onSwitchVehicle, collapsed, onToggleCollapse,
+  whatsappNumber, onSaveWhatsapp
+}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  const handleEditWhatsapp = () => {
+    const n = prompt("Enter WhatsApp number for real-time alerts:", whatsappNumber || "");
+    if (n !== null) onSaveWhatsapp(n);
+  };
 
   useEffect(() => {
     const onResize = () => {
@@ -137,11 +152,57 @@ export default function Sidebar({ activeTab, onTabChange, onLogout, criticalCoun
           onSwitch={onSwitchVehicle}
           collapsed={col}
           loading={vehiclesLoading}
+          whatsappNumber={whatsappNumber}
+          onSaveWhatsapp={onSaveWhatsapp}
         />
       </div>
 
       {/* Bottom */}
       <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 4 }}>
+        
+        {/* WhatsApp Alert Setting */}
+        <div style={{
+          padding: col ? "10px 0" : "10px 14px",
+          display: "flex", alignItems: "center", gap: 12,
+          justifyContent: col ? "center" : "flex-start",
+          background: "rgba(255,255,255,.03)", borderRadius: "var(--r-md)",
+          border: "1px solid rgba(255,255,255,.05)",
+          marginBottom: 4,
+          position: "relative",
+          cursor: "default"
+        }}>
+          <Phone size={16} color="var(--amber)" style={{ flexShrink: 0 }} />
+          {!col && (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Alerts</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {whatsappNumber || "Not Linked"}
+              </p>
+            </div>
+          )}
+          {!col && (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button 
+                onClick={handleEditWhatsapp}
+                title="Edit Number"
+                style={{ background: "rgba(255,255,255,.08)", border: "none", borderRadius: 6, padding: 5, cursor: "pointer", color: "var(--text-2)" }}
+              >
+                <Edit2 size={12} />
+              </button>
+              <button 
+                onClick={() => {
+                  const url = "https://wa.me/14155238886?text=join%20heat-taste";
+                  window.open(url, "_blank");
+                }}
+                title="Activate Twilio Sandbox"
+                style={{ background: "rgba(34,197,94,.15)", border: "none", borderRadius: 6, padding: 5, cursor: "pointer", color: "var(--green)" }}
+              >
+                <ExternalLink size={12} />
+              </button>
+            </div>
+          )}
+        </div>
+
         <motion.button
           whileHover={{ x: col ? 0 : 3 }}
           whileTap={{ scale: 0.96 }}
@@ -166,13 +227,13 @@ export default function Sidebar({ activeTab, onTabChange, onLogout, criticalCoun
         </motion.button>
 
         {!isMobile && (
-          <button onClick={() => setCollapsed(c => !c)} style={{
+          <button onClick={onToggleCollapse} style={{
             alignSelf: "center", width: 28, height: 28, borderRadius: "50%",
             background: "rgba(255,255,255,.05)", border: "1px solid var(--border)",
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer", color: "var(--text-3)",
           }}>
-            {col ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+            {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
           </button>
         )}
       </div>
@@ -185,7 +246,7 @@ export default function Sidebar({ activeTab, onTabChange, onLogout, criticalCoun
       animate={{ width: collapsed ? 72 : 220 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       className="glass"
-      style={{ height: "100vh", position: "fixed", left: 0, top: 0, zIndex: 200, borderRight: "1px solid var(--border)", overflow: "hidden", borderRadius: 0 }}
+      style={{ height: "100vh", position: "fixed", left: 0, top: 0, zIndex: 500, borderRight: "1px solid var(--border)", overflow: "hidden", borderRadius: 0 }}
     >
       <SidebarContent col={collapsed} />
     </motion.aside>

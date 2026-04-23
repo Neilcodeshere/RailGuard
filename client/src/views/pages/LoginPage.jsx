@@ -1,15 +1,13 @@
 /**
- * VIEW — LoginPage v3
- * Step 1: Email/Password/Google/Phone auth
- * Step 2: Vehicle selection from Firebase registry
- * Fully responsive — stacked on mobile, split-screen on desktop.
+ * VIEW — LoginPage v4
+ * Adds mandatory WhatsApp number collection
  */
-import { useState, Suspense } from "react";
+import { useState, Suspense, lazy } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Train, Mail, Lock, Phone, Smartphone, KeyRound,
   Eye, EyeOff, ArrowRight, Shield, ChevronRight,
-  CheckCircle, RefreshCw,
+  CheckCircle, RefreshCw, MessageSquare
 } from "lucide-react";
 import {
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
@@ -18,7 +16,6 @@ import {
 import { auth } from "../../config/firebase";
 import { useVehicles } from "../../controllers/useVehicles";
 import { STATUS_META } from "../../models/vehicleModel";
-import { lazy } from "react";
 
 const HeroGlobe = lazy(() => import("../components/HeroGlobe"));
 
@@ -132,7 +129,7 @@ function VehiclePicker({ onSelect, user }) {
                     {/* battery bar */}
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       <span style={{ fontSize: 10, color: "var(--text-3)" }}>🔋</span>
-                      <div style={{ width: 40, height: 4, background: "rgba(255,255,255,.1)", borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ width: 40, height: 4, background: "rgba(255,255,255,.07)", borderRadius: 99, overflow: "hidden" }}>
                         <div style={{
                           width: `${v.batteryPct}%`, height: "100%", borderRadius: 99,
                           background: v.batteryPct > 50 ? "var(--green)" : v.batteryPct > 20 ? "var(--amber)" : "var(--red)",
@@ -190,6 +187,7 @@ function AuthForm({ onSuccess }) {
   const [pass,   setPass]   = useState("");
   const [phone,  setPhone]  = useState("");
   const [otp,    setOtp]    = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [show,   setShow]   = useState(false);
   const [err,    setErr]    = useState("");
   const [busy,   setBusy]   = useState(false);
@@ -203,27 +201,35 @@ function AuthForm({ onSuccess }) {
   }
 
   const handleEmail = async e => {
-    e.preventDefault(); setErr(""); setBusy(true);
+    e.preventDefault(); 
+    if (!whatsapp.trim()) { setErr("WhatsApp number is compulsory for alerts."); return; }
+    setErr(""); setBusy(true);
     try {
       if (tab === "signin") {
         await signInWithEmailAndPassword(auth, email, pass);
       } else {
         await createUserWithEmailAndPassword(auth, email, pass);
       }
-      onSuccess();
+      onSuccess(whatsapp);
     } catch (e) { setErr(e.message.replace("Firebase: ", "").replace(/\(.*\)/,"")); }
     finally { setBusy(false); }
   };
 
   const handleGoogle = async () => {
+    if (!whatsapp.trim()) { setErr("WhatsApp number is compulsory for alerts."); return; }
     setErr(""); setBusy(true);
-    try { await signInWithPopup(auth, provider); onSuccess(); }
+    try { 
+      await signInWithPopup(auth, provider); 
+      onSuccess(whatsapp); 
+    }
     catch (e) { setErr(e.message.replace("Firebase: ","")); }
     finally { setBusy(false); }
   };
 
   const handlePhone = async e => {
-    e.preventDefault(); setErr(""); setBusy(true);
+    e.preventDefault(); 
+    if (!whatsapp.trim()) { setErr("WhatsApp number is compulsory for alerts."); return; }
+    setErr(""); setBusy(true);
     try {
       const result = await signInWithPhoneNumber(auth, phone.startsWith("+") ? phone : `+${phone}`, getRecaptchaVerifier());
       setConf(result);
@@ -233,7 +239,10 @@ function AuthForm({ onSuccess }) {
 
   const verifyOtp = async e => {
     e.preventDefault(); setErr(""); setBusy(true);
-    try { await conf.confirm(otp); onSuccess(); }
+    try { 
+      await conf.confirm(otp); 
+      onSuccess(whatsapp); 
+    }
     catch (e) { setErr("Invalid OTP. Please try again."); }
     finally { setBusy(false); }
   };
@@ -258,6 +267,24 @@ function AuthForm({ onSuccess }) {
         <p style={{ fontSize: 13, color: "var(--text-3)" }}>
           {tab === "signin" ? "Sign in to access the fleet dashboard" : "Register to join the rail inspection team"}
         </p>
+      </div>
+
+      {/* Mandatory WhatsApp Number Field */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          Compulsory: WhatsApp for Alerts
+        </p>
+        <div style={iconWrap}>
+          <span style={iconPos}><Smartphone size={15}/></span>
+          <input 
+            value={whatsapp} 
+            onChange={e=>setWhatsapp(e.target.value)} 
+            type="tel" 
+            placeholder="+91 WhatsApp Number" 
+            required 
+            style={{...inputStyle, border: !whatsapp ? "1px solid rgba(245,166,35,.3)" : "1px solid var(--border)"}} 
+          />
+        </div>
       </div>
 
       {/* Sign in / Sign up tabs */}
@@ -333,21 +360,59 @@ function AuthForm({ onSuccess }) {
               opacity: busy ? 0.7 : 1,
             }}>
             {busy ? <motion.span animate={{rotate:360}} transition={{repeat:Infinity,duration:.8,ease:"linear"}}><RefreshCw size={14}/></motion.span>
-              : <>{tab === "signin" ? "Sign In" : "Create Account"} <ArrowRight size={14}/></>}
+              : <>{tab === "signin" ? "Sign In" : "Create Account"} <ArrowRight size={14}/></> }
+          </motion.button>
+
+          {/* ── OR divider ── */}
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ flex:1, height:1, background:"var(--border)" }} />
+            <span style={{ fontSize:11, color:"var(--text-3)", fontWeight:600 }}>OR</span>
+            <div style={{ flex:1, height:1, background:"var(--border)" }} />
+          </div>
+
+          {/* ── Google Sign-In (white button, always visible) ── */}
+          <motion.button type="button" whileHover={{ scale:1.02, boxShadow:"0 8px 28px rgba(0,0,0,.28)" }} whileTap={{ scale:0.97 }}
+            onClick={handleGoogle} disabled={busy}
+            style={{
+              display:"flex", alignItems:"center", justifyContent:"center", gap:10,
+              padding:"12px 16px", borderRadius:"var(--r-lg)",
+              border:"none", cursor:busy?"not-allowed":"pointer",
+              background:"#ffffff",
+              fontSize:14, fontWeight:700, color:"#3c4043",
+              boxShadow:"0 2px 10px rgba(0,0,0,.18)",
+              transition:"box-shadow .2s",
+              opacity: busy ? 0.7 : 1,
+            }}>
+            <svg width="18" height="18" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            Continue with Google
           </motion.button>
         </form>
       )}
 
-      {/* Google */}
+      {/* Google tab (kept for phone mode compatibility) */}
       {mode === "google" && (
         <motion.button whileHover={{ scale:1.02 }} whileTap={{ scale:0.97 }} onClick={handleGoogle} disabled={busy}
           style={{
-            display:"flex", alignItems:"center", justifyContent:"center", gap:12,
-            padding:"13px", borderRadius:"var(--r-lg)", border:"1px solid var(--border)",
-            background:"rgba(255,255,255,.06)", cursor:"pointer",
-            fontSize:14, fontWeight:700, color:"var(--text-1)",
+            display:"flex", alignItems:"center", justifyContent:"center", gap:10,
+            padding:"12px 16px", borderRadius:"var(--r-lg)",
+            border:"none", cursor:busy?"not-allowed":"pointer",
+            background:"#ffffff",
+            fontSize:14, fontWeight:700, color:"#3c4043",
+            boxShadow:"0 2px 10px rgba(0,0,0,.18)",
+            opacity: busy ? 0.7 : 1,
           }}>
-          <span style={{fontSize:18}}>G</span> Continue with Google
+          <svg width="18" height="18" viewBox="0 0 48 48">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          Continue with Google
         </motion.button>
       )}
 
@@ -396,10 +461,12 @@ export default function LoginPage({ onVehicleSelected }) {
   const [step, setStep] = useState(1); // 1=auth, 2=vehicle pick
   const [dir,  setDir]  = useState(1);
   const [user, setUser] = useState(null);
+  const [waNum, setWaNum] = useState("");
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = (whatsapp) => {
     // Get the current Firebase user
     setUser(auth.currentUser);
+    setWaNum(whatsapp);
     setDir(1);
     setStep(2);
   };
@@ -465,7 +532,7 @@ export default function LoginPage({ onVehicleSelected }) {
           <motion.div key={step} custom={dir} variants={slide} initial="enter" animate="center" exit="exit">
             {step === 1
               ? <AuthForm onSuccess={handleAuthSuccess} />
-              : <VehiclePicker onSelect={onVehicleSelected} user={user} />
+              : <VehiclePicker onSelect={(v) => onVehicleSelected(v, waNum)} user={user} />
             }
           </motion.div>
         </AnimatePresence>

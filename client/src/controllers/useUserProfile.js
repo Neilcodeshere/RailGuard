@@ -35,8 +35,13 @@ export function useUserProfile(currentUser) {
 
         if (!snap.exists()) {
           // First time — create profile
-          await setDoc(ref, { ...base, lastVehicleId: null, createdAt: serverTimestamp() });
-          setProfile({ ...base, lastVehicleId: null });
+          await setDoc(ref, { 
+            ...base, 
+            lastVehicleId: null, 
+            whatsappNumber: "", 
+            createdAt: serverTimestamp() 
+          });
+          setProfile({ ...base, lastVehicleId: null, whatsappNumber: "" });
         } else {
           // Existing — update lastLogin
           await updateDoc(ref, { lastLogin: serverTimestamp() });
@@ -45,7 +50,7 @@ export function useUserProfile(currentUser) {
       } catch (err) {
         console.error("useUserProfile error:", err.message);
         // Graceful fallback — still allow login
-        setProfile({ uid: currentUser.uid, email: currentUser.email, lastVehicleId: null });
+        setProfile({ uid: currentUser.uid, email: currentUser.email, lastVehicleId: null, whatsappNumber: "" });
       } finally {
         setLoading(false);
       }
@@ -66,5 +71,18 @@ export function useUserProfile(currentUser) {
     }
   }, [currentUser?.uid]);
 
-  return { profile, loading, saveLastVehicle };
+  /** Save WhatsApp number for alerts */
+  const saveWhatsappNumber = useCallback(async (num) => {
+    if (!currentUser?.uid) return;
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        whatsappNumber: num,
+      });
+      setProfile(prev => prev ? { ...prev, whatsappNumber: num } : prev);
+    } catch (err) {
+      console.error("saveWhatsappNumber error:", err.message);
+    }
+  }, [currentUser?.uid]);
+
+  return { profile, loading, saveLastVehicle, saveWhatsappNumber };
 }

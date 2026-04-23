@@ -5,7 +5,7 @@
 import { motion } from "framer-motion";
 import { Battery, Gauge, Navigation, Shield, Database } from "lucide-react";
 
-export default function Topbar({ telemetry, deviceOnline, rtdbConnected, user }) {
+export default function Topbar({ telemetry, deviceOnline, rtdbConnected, user, whatsappNumber }) {
   const espColor  = deviceOnline  ? "var(--green)" : "var(--red)";
   const rtdbColor = rtdbConnected ? "var(--cyan)"  : "var(--text-3)";
 
@@ -91,11 +91,13 @@ export default function Topbar({ telemetry, deviceOnline, rtdbConnected, user })
           }}>
             {user?.email?.[0]?.toUpperCase() ?? "R"}
           </div>
-          <div>
+          <div style={{ textAlign: "right" }}>
             <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-1)", lineHeight: 1 }}>
               {user?.displayName ?? "Rail Operator"}
             </p>
-            <p style={{ fontSize: 10, color: "var(--text-3)", lineHeight: 1.4 }}>Authorised Personnel</p>
+            <p style={{ fontSize: 9, color: "var(--amber)", fontWeight: 700, marginTop: 2, letterSpacing: "0.02em" }}>
+              {whatsappNumber ? `📲 ${whatsappNumber}` : "No WhatsApp Link"}
+            </p>
           </div>
           <Shield size={13} color="var(--amber)" style={{ marginLeft: 2 }} />
         </div>

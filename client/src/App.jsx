@@ -17,6 +17,7 @@ import DashboardPage from "./views/pages/DashboardPage";
 import MapPage       from "./views/pages/MapPage";
 import TelemetryPage from "./views/pages/TelemetryPage";
 import HistoryPage   from "./views/pages/HistoryPage";
+import CameraPage    from "./views/pages/CameraPage";
 import Sidebar       from "./views/components/Sidebar";
 import Topbar        from "./views/components/Topbar";
 import AlertBanner   from "./views/components/AlertBanner";
@@ -29,21 +30,24 @@ const PAGE_TRANSITION = {
 };
 
 /* ── Dashboard shell (rendered once vehicle is chosen) ─────────────────────── */
-function DashboardShell({ currentUser, logout, selectedVehicle, vehicles, onSwitchVehicle, vehiclesLoading }) {
+function DashboardShell({ currentUser, profile, logout, selectedVehicle, vehicles, onSwitchVehicle, vehiclesLoading, onSaveWhatsapp }) {
   const {
     reports, telemetry, deviceOnline, rtdbConnected,
     alertActive, alertMsg, stats, criticalReports, clearAlerts,
     botRunning, startBot, stopBot,
-  } = useSensorFeed(selectedVehicle);
+  } = useSensorFeed(selectedVehicle, profile?.whatsappNumber);
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isMobile,  setIsMobile]  = useState(window.innerWidth < 768);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     const fn = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
   }, []);
+
+  const sidebarWidth = isMobile ? 0 : (collapsed ? 72 : 220);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-void)" }}>
@@ -58,13 +62,17 @@ function DashboardShell({ currentUser, logout, selectedVehicle, vehicles, onSwit
         vehiclesLoading={vehiclesLoading}
         selectedVehicle={selectedVehicle}
         onSwitchVehicle={onSwitchVehicle}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed(!collapsed)}
+        whatsappNumber={profile?.whatsappNumber}
+        onSaveWhatsapp={onSaveWhatsapp}
       />
 
       <div style={{
         flex: 1,
-        marginLeft: isMobile ? 0 : 220,
+        marginLeft: sidebarWidth,
         display: "flex", flexDirection: "column",
-        transition: "margin-left 0.35s",
+        transition: "margin-left 0.35s cubic-bezier(0.22, 1, 0.36, 1)",
         minWidth: 0, overflow: "hidden",
       }}>
         <Topbar
@@ -73,6 +81,7 @@ function DashboardShell({ currentUser, logout, selectedVehicle, vehicles, onSwit
           rtdbConnected={rtdbConnected}
           user={currentUser}
           vehicle={selectedVehicle}
+          whatsappNumber={profile?.whatsappNumber}
         />
 
         <main style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
@@ -84,6 +93,7 @@ function DashboardShell({ currentUser, logout, selectedVehicle, vehicles, onSwit
                   deviceOnline={deviceOnline} rtdbConnected={rtdbConnected}
                   botRunning={botRunning} startBot={startBot} stopBot={stopBot}
                   vehicle={selectedVehicle}
+                  whatsappNumber={profile?.whatsappNumber}
                 />
               </motion.div>
             )}
@@ -99,7 +109,16 @@ function DashboardShell({ currentUser, logout, selectedVehicle, vehicles, onSwit
             )}
             {activeTab === "history" && (
               <motion.div key="history" {...PAGE_TRANSITION}>
-                <HistoryPage reports={reports} />
+                <HistoryPage 
+                  reports={reports} 
+                  whatsappNumber={profile?.whatsappNumber}
+                  vehicle={selectedVehicle}
+                />
+              </motion.div>
+            )}
+            {activeTab === "camera" && (
+              <motion.div key="camera" {...PAGE_TRANSITION}>
+                <CameraPage />
               </motion.div>
             )}
           </AnimatePresence>
@@ -114,7 +133,7 @@ export default function App() {
   const { currentUser, logout }                      = useAuth();
   const { vehicles, loading: vehiclesLoading }        = useVehicles();
   const { profile, loading: profileLoading,
-          saveLastVehicle }                           = useUserProfile(currentUser);
+          saveLastVehicle, saveWhatsappNumber }       = useUserProfile(currentUser);
   const [selectedVehicle, setSelectedVehicle]        = useState(null);
   const [vehicleRestored, setVehicleRestored]        = useState(false);
 
@@ -144,9 +163,10 @@ export default function App() {
     }
   }, [currentUser]);
 
-  const handleVehicleSelected = (vehicle) => {
+  const handleVehicleSelected = (vehicle, whatsapp) => {
     setSelectedVehicle(vehicle);
     saveLastVehicle(vehicle.id);
+    if (whatsapp) saveWhatsappNumber(whatsapp);
   };
 
   const handleSwitchVehicle = (vehicle) => {
@@ -186,11 +206,13 @@ export default function App() {
   return (
     <DashboardShell
       currentUser={currentUser}
+      profile={profile}
       logout={logout}
       selectedVehicle={selectedVehicle}
       vehicles={vehicles}
       vehiclesLoading={vehiclesLoading}
       onSwitchVehicle={handleSwitchVehicle}
+      onSaveWhatsapp={saveWhatsappNumber}
     />
   );
 }

@@ -4,11 +4,12 @@
  * Paths are derived from the selected vehicle's logPath / ctrlPath.
  */
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ref, onValue, set, off } from "firebase/database";
+import { ref, onValue, set } from "firebase/database";
 import { database } from "../config/firebase";
 import { parseFirebaseLog, getInitialReports, createGpsTelemetry } from "../models/sensorModel";
+import { sendWhatsAppAlert } from "./whatsappController";
 
-export function useSensorFeed(vehicle) {
+export function useSensorFeed(vehicle, whatsappNumber) {
   const logPath  = vehicle?.logPath  ?? "railway_logs/RG-001";
   const ctrlPath = vehicle?.ctrlPath ?? "bot_control/RG-001";
 
@@ -20,10 +21,12 @@ export function useSensorFeed(vehicle) {
   const [alertMsg,      setAlertMsg]      = useState("");
   const [rtdbConnected, setRtdbConnected] = useState(false);
   const hasRealData = useRef(false);
+  const lastAlertId = useRef(null);
 
   // Reset when vehicle changes
   useEffect(() => {
     hasRealData.current = false;
+    lastAlertId.current = null;
     setReports(getInitialReports(8));
     setTelemetry(createGpsTelemetry());
     setDeviceOnline(false);
@@ -63,6 +66,20 @@ export function useSensorFeed(vehicle) {
         if (latest.buzzerActive) {
           setAlertActive(true);
           setAlertMsg(`⚠ ${latest.severity}: ${latest.type.replace("_"," ")} @ ${latest.corridor} — ${latest.ultrasonicCm} cm`);
+          
+          // WhatsApp Auto-Alert
+          if (whatsappNumber && lastAlertId.current !== latest.id && (latest.severity === "CRITICAL" || latest.severity === "HIGH")) {
+            lastAlertId.current = latest.id;
+            sendWhatsAppAlert(whatsappNumber, {
+              type: latest.type,
+              vehicleName: vehicle?.name || "Unknown Vehicle",
+              vehicleId: vehicle?.id || "N/A",
+              corridor: latest.corridor,
+              severity: latest.severity,
+              location: latest.latitude ? `${latest.latitude}, ${latest.longitude}` : "Unknown",
+              photoUrl: latest.photoUrl || "http://localhost:5173/dashboard",
+            });
+          }
         }
       }
     }, (err) => {
@@ -70,7 +87,7 @@ export function useSensorFeed(vehicle) {
       setRtdbConnected(false);
       setDeviceOnline(false);
     });
-    return () => off(logsRef, "value", unsub);
+    return () => unsub();
   }, [logPath]);
 
   // Subscribe to bot_control
@@ -78,7 +95,7 @@ export function useSensorFeed(vehicle) {
     const ctrlRef = ref(database, ctrlPath);
     const unsub = onValue(ctrlRef, (snap) => setBotRunning(snap.val() === 1),
       err => console.error(`RTDB ${ctrlPath}:`, err.message));
-    return () => off(ctrlRef, "value", unsub);
+    return () => unsub();
   }, [ctrlPath]);
 
   const sendBotCommand = useCallback(async (cmd) => {
