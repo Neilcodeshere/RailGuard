@@ -408,7 +408,7 @@ export default function LoginPage({ onVehicleSelected }) {
     <div style={{
       minHeight: "100vh",
       display: "grid",
-      gridTemplateColumns: "clamp(320px, 40%, 480px) 1fr",
+      gridTemplateColumns: "clamp(380px, 46%, 520px) 1fr",
       background: "var(--bg-void)",
     }}
       className="login-grid"
@@ -488,30 +488,27 @@ export default function LoginPage({ onVehicleSelected }) {
         )}
       </div>
 
-      {/* ── Right panel (Three.js globe) — hidden on mobile ── */}
+      {/* ── Right panel — 3D vehicle only, no duplicate pills ── */}
       <div className="login-globe" style={{
         position: "relative",
-        background: "radial-gradient(ellipse at center, rgba(245,166,35,.06) 0%, transparent 70%)",
+        background: "radial-gradient(ellipse at 50% 45%, rgba(245,166,35,.07) 0%, transparent 65%)",
+        display: "flex", flexDirection: "column",
       }}>
         <Suspense fallback={<div style={{ flex:1, background:"var(--bg-void)" }} />}>
           <HeroGlobe />
         </Suspense>
-        <div style={{
-          position:"absolute", bottom:32, left:"50%", transform:"translateX(-50%)",
-          display:"flex", flexDirection:"column", gap:10, alignItems:"center", width:"clamp(260px,70%,380px)",
-        }}>
-          {FEATURES.map((f,i) => (
-            <motion.div key={i}
-              initial={{ y:20, opacity:0 }} animate={{ y:0, opacity:1 }}
-              transition={{ delay:0.8+i*0.12, duration:0.5 }}
-              style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 16px",
-                borderRadius:99, background:"rgba(13,20,37,.75)", backdropFilter:"blur(12px)",
-                border:"1px solid rgba(255,255,255,.08)", width:"100%" }}>
-              <span style={{ fontSize:14 }}>{f.icon}</span>
-              <span style={{ fontSize:12, color:"var(--text-2)", fontWeight:500 }}>{f.text}</span>
-            </motion.div>
-          ))}
-        </div>
+        {/* Minimal bottom label — no feature duplication */}
+        <motion.div
+          initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}
+          transition={{ delay:1, duration:0.6 }}
+          style={{
+            position:"absolute", bottom:28, left:"50%", transform:"translateX(-50%)",
+            textAlign:"center", pointerEvents:"none",
+          }}
+        >
+          <p style={{ fontSize:13, fontWeight:700, color:"rgba(245,166,35,.8)", letterSpacing:"0.05em" }}>RG-001 Inspection Bot</p>
+          <p style={{ fontSize:11, color:"rgba(255,255,255,.3)", marginTop:3 }}>Drag to orbit · Auto-rotates</p>
+        </motion.div>
       </div>
     </div>
   );

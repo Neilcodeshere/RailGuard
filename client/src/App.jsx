@@ -1,14 +1,15 @@
 /**
  * APP — Root MVC coordinator
- * Manages auth state, selected vehicle, and routes between Login and dashboard.
+ * Manages auth, Firestore user profile, selected vehicle, and page routing.
  */
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Controllers
-import { useAuth }         from "./contexts/AuthContext";
-import { useSensorFeed }   from "./controllers/useSensorFeed";
-import { useVehicles }     from "./controllers/useVehicles";
+import { useAuth }        from "./contexts/AuthContext";
+import { useSensorFeed }  from "./controllers/useSensorFeed";
+import { useVehicles }    from "./controllers/useVehicles";
+import { useUserProfile } from "./controllers/useUserProfile";
 
 // Views
 import LoginPage     from "./views/pages/LoginPage";
@@ -27,7 +28,8 @@ const PAGE_TRANSITION = {
   transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
 };
 
-function DashboardShell({ currentUser, logout, selectedVehicle, vehicles, onSwitchVehicle }) {
+/* ── Dashboard shell (rendered once vehicle is chosen) ─────────────────────── */
+function DashboardShell({ currentUser, logout, selectedVehicle, vehicles, onSwitchVehicle, vehiclesLoading }) {
   const {
     reports, telemetry, deviceOnline, rtdbConnected,
     alertActive, alertMsg, stats, criticalReports, clearAlerts,
@@ -53,11 +55,18 @@ function DashboardShell({ currentUser, logout, selectedVehicle, vehicles, onSwit
         onLogout={logout}
         criticalCount={criticalReports.length}
         vehicles={vehicles}
+        vehiclesLoading={vehiclesLoading}
         selectedVehicle={selectedVehicle}
         onSwitchVehicle={onSwitchVehicle}
       />
 
-      <div style={{ flex: 1, marginLeft: isMobile ? 0 : 220, display: "flex", flexDirection: "column", transition: "margin-left 0.35s", minWidth: 0 }}>
+      <div style={{
+        flex: 1,
+        marginLeft: isMobile ? 0 : 220,
+        display: "flex", flexDirection: "column",
+        transition: "margin-left 0.35s",
+        minWidth: 0, overflow: "hidden",
+      }}>
         <Topbar
           telemetry={telemetry}
           deviceOnline={deviceOnline}
@@ -100,41 +109,78 @@ function DashboardShell({ currentUser, logout, selectedVehicle, vehicles, onSwit
   );
 }
 
+/* ── Root ──────────────────────────────────────────────────────────────────── */
 export default function App() {
-  const { currentUser, logout } = useAuth();
-  const { vehicles, loading: vehiclesLoading } = useVehicles();
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const { currentUser, logout }                      = useAuth();
+  const { vehicles, loading: vehiclesLoading }        = useVehicles();
+  const { profile, loading: profileLoading,
+          saveLastVehicle }                           = useUserProfile(currentUser);
+  const [selectedVehicle, setSelectedVehicle]        = useState(null);
+  const [vehicleRestored, setVehicleRestored]        = useState(false);
 
-  // When user logs in and no vehicle selected, show login → vehicle pick
-  // selectedVehicle is set by LoginPage's onVehicleSelected callback
+  // Auto-restore last used vehicle from Firestore profile
+  useEffect(() => {
+    if (vehicleRestored) return;                     // only run once per login
+    if (profileLoading || vehiclesLoading) return;   // wait for both to load
+    if (!currentUser || !profile) return;
+
+    const lastId = profile.lastVehicleId;
+    if (lastId && vehicles.length > 0) {
+      const found = vehicles.find(v => v.id === lastId);
+      if (found) {
+        setSelectedVehicle(found);
+        setVehicleRestored(true);
+        return;
+      }
+    }
+    setVehicleRestored(true); // no previous vehicle — show picker
+  }, [profile, vehicles, profileLoading, vehiclesLoading, vehicleRestored, currentUser]);
+
+  // Reset on logout
+  useEffect(() => {
+    if (!currentUser) {
+      setSelectedVehicle(null);
+      setVehicleRestored(false);
+    }
+  }, [currentUser]);
+
   const handleVehicleSelected = (vehicle) => {
     setSelectedVehicle(vehicle);
+    saveLastVehicle(vehicle.id);
   };
 
   const handleSwitchVehicle = (vehicle) => {
     setSelectedVehicle(vehicle);
+    saveLastVehicle(vehicle.id);
   };
 
-  // If logged in but no vehicle selected yet, persist the first online vehicle as default
-  useEffect(() => {
-    if (currentUser && !selectedVehicle && !vehiclesLoading && vehicles.length > 0) {
-      // Don't auto-select — force the user through the vehicle picker step
-      // (selectedVehicle stays null until login flow completes)
-    }
-  }, [currentUser, selectedVehicle, vehiclesLoading, vehicles]);
-
-  // Not logged in → show login
+  // Not logged in → Login page (step 1 = auth, step 2 = vehicle picker)
   if (!currentUser) {
     return <LoginPage onVehicleSelected={handleVehicleSelected} />;
   }
 
-  // Logged in but no vehicle chosen (e.g. page refresh) → re-show vehicle picker
-  if (!selectedVehicle) {
+  // Profile still loading — show minimal spinner
+  if (profileLoading || (vehiclesLoading && !vehicleRestored)) {
     return (
-      <div style={{ minHeight: "100vh", background: "var(--bg-void)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <LoginPage onVehicleSelected={handleVehicleSelected} />
+      <div style={{
+        minHeight: "100vh", background: "var(--bg-void)",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16,
+      }}>
+        <motion.div
+          animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+          style={{ width: 36, height: 36, borderRadius: "50%",
+            border: "3px solid rgba(245,166,35,.2)", borderTopColor: "#f5a623" }}
+        />
+        <p style={{ fontSize: 13, color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
+          Restoring your session…
+        </p>
       </div>
     );
+  }
+
+  // Logged in but no vehicle selected → show vehicle picker (step 2 only)
+  if (!selectedVehicle) {
+    return <LoginPage onVehicleSelected={handleVehicleSelected} />;
   }
 
   return (
@@ -143,6 +189,7 @@ export default function App() {
       logout={logout}
       selectedVehicle={selectedVehicle}
       vehicles={vehicles}
+      vehiclesLoading={vehiclesLoading}
       onSwitchVehicle={handleSwitchVehicle}
     />
   );

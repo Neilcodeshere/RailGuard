@@ -2,12 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="RailGuard — Autonomous Railway Inspection System. Real-time IoT dashboard with GPS tracking, ultrasonic sensing, and crack detection." />
-    <meta name="theme-color" content="#03050d" />
-    <title>RailGuard · Railway Inspection System</title>
+    <meta name="theme-color" content="#f5a623" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="RailGuard" />
+    <meta name="application-name" content="RailGuard" />
+    <meta name="msapplication-TileColor" content="#f5a623" />
+
+    <!-- PWA Manifest — sets the name when added to home screen / installed -->
+    <link rel="manifest" href="/manifest.json" />
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+
+    <title>RailGuard</title>
   </head>
   <body>
     <div id="root"></div>

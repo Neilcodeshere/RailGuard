@@ -64,7 +64,7 @@ function NavItem({ id, label, icon: Icon, isActive, collapsed, onClick, badge })
   );
 }
 
-export default function Sidebar({ activeTab, onTabChange, onLogout, criticalCount = 0, vehicles = [], selectedVehicle, onSwitchVehicle }) {
+export default function Sidebar({ activeTab, onTabChange, onLogout, criticalCount = 0, vehicles = [], vehiclesLoading = false, selectedVehicle, onSwitchVehicle }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -136,6 +136,7 @@ export default function Sidebar({ activeTab, onTabChange, onLogout, criticalCoun
           current={selectedVehicle}
           onSwitch={onSwitchVehicle}
           collapsed={col}
+          loading={vehiclesLoading}
         />
       </div>
 

@@ -1,31 +1,46 @@
-import { StrictMode, Component } from "react";
+/**
+ * ENTRY — main.jsx
+ * Renders Preloader first, then the authenticated app shell.
+ */
+import React, { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
-import "./index.css";
-import App from "./App";
+import { AnimatePresence } from "framer-motion";
 import { AuthProvider } from "./contexts/AuthContext";
+import Preloader from "./views/components/Preloader";
+import App from "./App";
+import "./index.css";
 
-class ErrorBoundary extends Component {
+class ErrorBoundary extends React.Component {
   state = { error: null };
-  static getDerivedStateFromError(err) { return { error: err }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
   render() {
-    if (this.state.error) {
-      return (
-        <div style={{ padding: 40, color: "#ef4444", fontFamily: "monospace", background: "#03050d", minHeight: "100vh" }}>
-          <h2 style={{ color: "#f5a623", marginBottom: 16 }}>Runtime Error</h2>
-          <pre style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>{this.state.error.toString()}</pre>
-        </div>
-      );
-    }
+    if (this.state.error) return (
+      <div style={{ padding: 32, color: "#ef4444", fontFamily: "monospace" }}>
+        <h2>⚠ Render Error</h2>
+        <pre style={{ marginTop: 12, fontSize: 12 }}>{this.state.error.message}</pre>
+      </div>
+    );
     return this.props.children;
   }
 }
 
-createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </ErrorBoundary>
-  </StrictMode>
-);
+function Root() {
+  const [ready, setReady] = useState(false);
+  return (
+    <>
+      <AnimatePresence>
+        {!ready && <Preloader key="preloader" onDone={() => setReady(true)} />}
+      </AnimatePresence>
+      {ready && (
+        <ErrorBoundary>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </ErrorBoundary>
+      )}
+    </>
+  );
+}
+
+const el = document.getElementById("root");
+if (el) createRoot(el).render(<StrictMode><Root /></StrictMode>);
