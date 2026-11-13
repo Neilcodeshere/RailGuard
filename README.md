@@ -1,232 +1,124 @@
-<div align="center">
+# RailGuard
 
-# 🚂 RailGuard — Autonomous Railway Crack Detection System
+A monitoring dashboard for a small railway inspection bot. The bot drives along a track with an ultrasonic sensor and pushes its readings to Firebase. The dashboard shows them live, flags dangerous readings, puts them on a map and can send a WhatsApp alert.
 
-**A full-stack IoT dashboard for real-time detection and monitoring of railway track defects using an ESP32-CAM.**
+This was a team mini-project. The repo holds the web dashboard; the bot's sensor firmware isn't in it yet (see [Current Limitations](#current-limitations)).
 
-[![Node.js](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-green?logo=node.js)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?logo=react)](https://react.dev/)
-[![MongoDB](https://img.shields.io/badge/Database-MongoDB-47A248?logo=mongodb)](https://www.mongodb.com/)
-[![Socket.io](https://img.shields.io/badge/Realtime-Socket.io-010101?logo=socket.io)](https://socket.io/)
-[![Arduino](https://img.shields.io/badge/Hardware-ESP32--CAM-00979D?logo=arduino)](https://www.arduino.cc/)
+## Overview
 
-</div>
+The idea was a cheap way to catch obstacles and track damage early, without someone walking the line. The bot measures the distance to whatever is in front of it. A very short distance means something is on or close to the rail, and the dashboard turns that into a severity level and raises an alert.
 
----
+We started with an Express + MongoDB + Socket.io backend and moved to Firebase partway through. The bot writes straight to the Realtime Database and the React app listens to it, so there's no server of our own to run.
 
-## 📑 Table of Contents
+## Features
 
-- [Overview](#-overview)
-- [Architecture](#-architecture)
-- [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
-- [Getting Started](#-getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Running Locally](#running-locally)
-- [Hardware Setup](#-hardware-setup)
-- [Environment Variables](#-environment-variables)
-- [API Reference](#-api-reference)
-- [Contributing](#-contributing)
+- Sign in with email/password, Google or phone number (Firebase Auth)
+- Live feed of readings from the Realtime Database for the selected bot
+- Severity from the ultrasonic distance: ≤ 5 cm critical, ≤ 10 cm high, ≤ 25 cm medium, otherwise low
+- Alert banner for high and critical readings, plus an optional WhatsApp message through the Twilio sandbox
+- Start and stop the bot from the dashboard (writes `1` or `0` to its control node)
+- Several bots, each with its own log and control path; a default set is written to Firebase on first run
+- Leaflet map of readings, using GPS when the bot has a fix
+- Telemetry page with gauges, a compass and the buzzer state
+- History page with sorting, filtering and CSV export
+- A page for viewing an ESP32-CAM stream (raw MJPEG or the camera's web panel) by entering its local IP
+- Per-user profile in Firestore (last selected bot, WhatsApp number)
 
----
+## Tech Stack
 
-## 🔍 Overview
+- **Frontend:** React 18, Vite, Tailwind CSS, React Router, Framer Motion
+- **Maps and 3D:** Leaflet / react-leaflet, three.js with @react-three/fiber for the landing globe
+- **Backend services:** Firebase Auth, Realtime Database, Firestore
+- **Alerts:** Twilio WhatsApp sandbox
+- **Hardware:** ESP8266 with an ultrasonic sensor, ESP32-CAM for the video stream
 
-**RailGuard** is an autonomous railway crack detection system that combines an **ESP32-CAM** hardware module with a full-stack web application. The system:
+## Project Structure
 
-- Captures images of railway tracks as the ESP32-CAM module travels along the rail.
-- Detects cracks and defects on the track surface.
-- Streams live status and detection events to a central dashboard via **WebSockets**.
-- Logs all detection events with GPS coordinates, severity, and images to a **MongoDB** database.
-- Visualises crack locations on an **interactive map** (Leaflet.js) for maintenance teams.
-
----
-
-## 🏗 Architecture
+The client is split loosely into models, views and controllers:
 
 ```
-┌─────────────────────┐         ┌───────────────────────────┐
-│   ESP32-CAM Module  │──HTTP──▶│  Node.js / Express Server │
-│  (Railway Scanner)  │◀─WS────│  (REST API + Socket.io)   │
-└─────────────────────┘         └──────────┬────────────────┘
-                                           │  Mongoose
-                                           ▼
-                                    ┌─────────────┐
-                                    │   MongoDB   │
-                                    └─────────────┘
-                                           │  Socket.io
-                                           ▼
-                               ┌───────────────────────┐
-                               │  React Dashboard      │
-                               │  (Vite + Leaflet.js)  │
-                               └───────────────────────┘
+client/
+  src/
+    config/firebase.js       Firebase app, auth, RTDB and Firestore
+    models/                  sensor and vehicle data shapes, parsing, seed data
+    controllers/             hooks: auth, sensor feed, vehicles, user profile, WhatsApp
+    contexts/                auth and toast providers
+    views/pages/             dashboard, map, telemetry, history, camera, login
+    views/components/        sidebar, top bar, vehicle switcher, globe, stat cards
+hardware/
+  esp32_cam_sketch/          ESP8266 Wi-Fi test sketch (not the sensor firmware)
 ```
 
----
+## Getting Started
 
-## 🛠 Tech Stack
+You need Node.js 18+ and a Firebase project with Authentication, Realtime Database and Firestore enabled.
 
-| Layer      | Technology                                               |
-|------------|----------------------------------------------------------|
-| Hardware   | ESP32-CAM, Arduino (C++)                                |
-| Backend    | Node.js, Express.js, Socket.io, Mongoose                |
-| Database   | MongoDB (local or Atlas)                                |
-| Frontend   | React 18, Vite, Tailwind CSS, Leaflet.js, Socket.io-client |
-| Dev Tools  | Nodemon, ESLint                                         |
-
----
-
-## 📁 Project Structure
-
-```
-Mini Project/
-├── client/                  # React frontend (Vite)
-│   ├── src/
-│   │   ├── components/      # UI components (MapView, LiveFeed, HistoricalLog…)
-│   │   ├── App.jsx
-│   │   ├── socket.js        # Socket.io client instance
-│   │   └── main.jsx
-│   ├── index.html
-│   └── package.json
-│
-├── server/                  # Express backend
-│   ├── models/              # Mongoose schemas
-│   ├── routes/              # API routes (crackRoutes.js)
-│   ├── uploads/             # Uploaded defect images (auto-created, git-ignored)
-│   ├── server.js            # Main entry point
-│   ├── mock-esp32.js        # Local ESP32 simulator for development
-│   ├── seed.js              # Database seeder script
-│   └── package.json
-│
-├── hardware/
-│   └── esp32_cam_sketch/    # Arduino sketch for the ESP32-CAM
-│       └── esp32_cam_sketch.ino
-│
-├── manage_system.bat        # Convenience script to start all services (Windows)
-└── .gitignore
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Node.js** v18+ and **npm**
-- **MongoDB** running locally on port `27017` (or a MongoDB Atlas URI)
-- **Git**
-- *(Optional)* Arduino IDE for hardware flashing
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/<your-username>/railguard.git
-   cd railguard
-   ```
-
-2. **Install server dependencies**
-   ```bash
-   cd server
-   npm install
-   ```
-
-3. **Configure environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your values (MongoDB URI, port, etc.)
-   ```
-
-4. **Install client dependencies**
-   ```bash
-   cd ../client
-   npm install
-   ```
-
-### Running Locally
-
-Open **two terminals** from the project root:
-
-**Terminal 1 — Backend**
 ```bash
-cd server
-npm run dev        # starts nodemon on http://localhost:5000
+git clone https://github.com/Neilcodeshere/RailGuard.git
+cd RailGuard/client
+npm install
+cp .env.example .env     # only needed for WhatsApp alerts
+npm run dev              # http://localhost:5173
 ```
 
-**Terminal 2 — Frontend**
+The Firebase project settings are in `client/src/config/firebase.js`. Replace them with your own project's web config if you're running your own copy.
+
+To build for production:
+
 ```bash
-cd client
-npm run dev        # starts Vite on http://localhost:5173
+npm run build
+npm run preview
 ```
 
-> **Tip:** On Windows you can also run `manage_system.bat` to start both services at once.
+### Data the dashboard expects
 
-**Simulate an ESP32-CAM (no hardware needed)**
-```bash
-cd server
-node mock-esp32.js
+Each bot writes readings to `railway_logs/<botId>` with `push`, and reads its run state from `bot_control/<botId>`:
+
+```json
+// railway_logs/RG-001/<pushId>
+{ "distance": 8.4, "latitude": 19.07, "longitude": 72.88, "satellites": 6 }
+
+// bot_control/RG-001
+1
 ```
 
-**Seed the database with sample data**
-```bash
-cd server
-node seed.js
-```
+Only `distance` is required. Without GPS fields the reading is placed near a default corridor on the map.
 
----
+## Environment Variables
 
-## ⚙️ Hardware Setup
+Only the WhatsApp alerts use environment variables, in `client/.env`:
 
-1. Open `hardware/esp32_cam_sketch/esp32_cam_sketch.ino` in the **Arduino IDE**.
-2. Install the required libraries (ESP32 board support, camera libs).
-3. Update the Wi-Fi SSID, password, and server IP inside the sketch.
-4. Flash to your **ESP32-CAM** (AI-Thinker module recommended).
-5. Power on and place on the railway track — the module will begin scanning and sending data to the server automatically.
+| Variable | Purpose |
+|---|---|
+| `VITE_TWILIO_SID` | Twilio account SID |
+| `VITE_TWILIO_TOKEN` | Twilio auth token |
 
----
+The recipient has to join the Twilio sandbox from WhatsApp first. Anything prefixed `VITE_` is bundled into the browser code, so only use a sandbox or test account here (see the limitations below).
 
-## 🔐 Environment Variables
+## How It Works
 
-The server reads configuration from `server/.env`. Copy `server/.env.example` to `server/.env` and fill in your values:
+`useSensorFeed` subscribes to the selected bot's log path with `onValue`. Every snapshot is parsed into a common report shape (`parseFirebaseLog`), sorted newest first and capped at 100. If the newest reading is high or critical, the alert banner appears, and if the user has saved a WhatsApp number, one message is sent per new reading.
 
-| Variable    | Default                                        | Description                     |
-|-------------|------------------------------------------------|---------------------------------|
-| `PORT`      | `5000`                                         | Express server port             |
-| `MONGO_URI` | `mongodb://127.0.0.1:27017/railway_cracks`     | MongoDB connection string       |
-| `CLIENT_URL`| `http://localhost:5173`                        | Frontend URL (used for CORS)    |
+Until real data arrives the dashboard shows a few generated sample reports, so the UI isn't empty during a demo. Real readings are tagged `source: "firebase"` and samples `source: "mock"`.
 
----
+Start and stop just write `1` or `0` to `bot_control/<botId>`. The firmware is expected to watch that value.
 
-## 📡 API Reference
+## Current Limitations
 
-| Method | Endpoint           | Description                        |
-|--------|--------------------|------------------------------------|
-| GET    | `/`                | Health check                       |
-| GET    | `/api/cracks`      | Fetch all crack detection records  |
-| POST   | `/api/cracks`      | Create a new crack detection event |
-| GET    | `/uploads/:file`   | Serve a defect image               |
+- **Firmware:** the sketch in `hardware/` is an ESP8266 Wi-Fi test that toggles an LED through a web page. The firmware that reads the ultrasonic sensor and pushes to Firebase isn't committed yet.
+- **Detection is distance-based.** There's no image-based crack detection; the camera page only displays the stream.
+- **Generated fields:** `speed` and `confidence` on each reading are random placeholders because the bot doesn't send them, so the average-confidence stat isn't meaningful yet.
+- **Twilio from the browser:** the Twilio token is bundled into the client, so anyone using the deployed app could read it. This should move to a Firebase Cloud Function.
+- The device shows as online as soon as the database connection works, not when the bot itself last reported.
 
-**WebSocket Events**
+## Future Improvements
 
-| Event                  | Direction           | Payload                   |
-|------------------------|---------------------|---------------------------|
-| `esp32-status`         | Client → Server     | `{ status: "online" }`    |
-| `esp32-status-update`  | Server → Client     | `{ status: "online" }`    |
-| `new-crack`            | Server → Client     | Crack detection object    |
+- Commit the real sensor firmware and keep Wi-Fi details in a separate untracked header
+- Move WhatsApp alerts into a Cloud Function
+- Send speed from the bot and drop the generated values
+- Use the bot's last-report time for online/offline status
+- Try a small image model on ESP32-CAM frames for actual crack detection
 
----
+## Team
 
-## 🤝 Contributing
-
-1. Fork the repo
-2. Create your feature branch: `git checkout -b feat/your-feature`
-3. Commit your changes: `git commit -m 'feat: add some feature'`
-4. Push to the branch: `git push origin feat/your-feature`
-5. Open a Pull Request
-
----
-
-<div align="center">
-Made with ❤️ for railway safety
-</div>
+Subhronil Chattoraj ([Neilcodeshere](https://github.com/Neilcodeshere)) and Trushal Pal ([Trushal-Talhah](https://github.com/Trushal-Talhah)).
